@@ -90,7 +90,7 @@
   .clip-row{display:flex;align-items:center;justify-content:space-between;background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13px;}
   .analyze-stage{position:relative;background:#000;border-radius:var(--radius);overflow:hidden;}
   .analyze-stage canvas, .analyze-stage video{width:100%;display:block;}
-  .analyze-stage canvas{position:absolute;top:0;left:0;pointer-events:auto;}
+  .analyze-stage canvas{position:absolute;top:0;left:0;pointer-events:none;}
   .phase-btns{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
   .phase-btns button{flex:1 1 30%;font-size:11.5px;padding:8px 4px;border-radius:9px;background:var(--card2);border:1px solid var(--line);color:var(--text);cursor:pointer;}
   .phase-btns button.marked{border-color:var(--good);color:var(--good);}
@@ -800,6 +800,7 @@ function renderLearn(){
 }
 renderLearn();
 initAuth();
+loadClipsFromStore();
 
 /* ---------------------------------------------------------
    RECORDING
@@ -857,22 +858,90 @@ async function addClip(blob, name){
   }
   const url = URL.createObjectURL(blob);
   const id = 'clip_' + Date.now();
-  clips.push({id, name, url, blob});
+  const clip = {id, name, url, blob, createdAt: Date.now()};
+  clips.push(clip);
   renderClipList();
   updateBillingUI();
+  saveClipToStore(clip).catch(e => console.warn("Couldn't save clip on-device:", e));
 }
 
 function renderClipList(){
   const el = document.getElementById('clip-list');
   if(clips.length===0){ el.innerHTML = '<div class="empty-state">No clips yet — film or upload one above.</div>'; return; }
-  el.innerHTML = clips.map(c=>`
+  const sorted = [...clips].sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+  el.innerHTML = sorted.map(c=>`
     <div class="clip-row">
       <span>🎬 ${c.name}</span>
-      <span>
+      <span style="display:flex;gap:6px;">
         <button class="btn ghost" onclick="goTo('analyze'); setTimeout(()=>loadClipForAnalysis('${c.id}'),50);">Analyze →</button>
+        <button class="link-btn" onclick="deleteClip('${c.id}')">Delete</button>
       </span>
     </div>
   `).join('');
+}
+
+async function deleteClip(id){
+  if(!confirm("Delete this clip from your device? This can't be undone.")) return;
+  clips = clips.filter(c => c.id !== id);
+  renderClipList();
+  refreshClipSelect();
+  await deleteClipFromStore(id).catch(e => console.warn("Couldn't remove clip from on-device storage:", e));
+}
+
+/* ---------------------------------------------------------
+   ON-DEVICE CLIP STORAGE (IndexedDB)
+   Clips are saved locally so they survive a reload — they are
+   still never uploaded anywhere; this is purely local to the
+   browser/device, matching the privacy policy.
+--------------------------------------------------------- */
+let clipDBPromise = null;
+function openClipDB(){
+  if(clipDBPromise) return clipDBPromise;
+  clipDBPromise = new Promise((resolve, reject) => {
+    const req = indexedDB.open('apexClipStore', 1);
+    req.onupgradeneeded = () => {
+      req.result.createObjectStore('clips', { keyPath: 'id' });
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+  return clipDBPromise;
+}
+
+async function saveClipToStore(clip){
+  const db = await openClipDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('clips', 'readwrite');
+    tx.objectStore('clips').put({ id: clip.id, name: clip.name, blob: clip.blob, createdAt: clip.createdAt });
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function deleteClipFromStore(id){
+  const db = await openClipDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('clips', 'readwrite');
+    tx.objectStore('clips').delete(id);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function loadClipsFromStore(){
+  try{
+    const db = await openClipDB();
+    const records = await new Promise((resolve, reject) => {
+      const tx = db.transaction('clips', 'readonly');
+      const req = tx.objectStore('clips').getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => reject(req.error);
+    });
+    clips = records.map(r => ({ id: r.id, name: r.name, blob: r.blob, url: URL.createObjectURL(r.blob), createdAt: r.createdAt }));
+    renderClipList();
+  }catch(e){
+    console.warn("Couldn't load saved clips:", e);
+  }
 }
 
 /* ---------------------------------------------------------
@@ -922,17 +991,25 @@ function loadClipForAnalysis(id){
   anVideo.onloadedmetadata = () => {
     anCanvas.width = anVideo.videoWidth;
     anCanvas.height = anVideo.videoHeight;
+    drawPoseFrame();
   };
 
   renderPhaseButtons();
   cancelAnimationFrame(poseLoopHandle);
-  const loop = async () => {
-    if(anVideo.readyState >= 2){
-      await drawPoseFrame();
-    }
-    poseLoopHandle = requestAnimationFrame(loop);
+
+  // Only run the (expensive) per-frame pose model continuously while the
+  // video is actually playing. While paused/scrubbing, we just draw once
+  // per change (loadedmetadata/seeked/pause below) — running this at 60fps
+  // regardless of play state was pinning the main thread on phones and
+  // making playback + the frame-step buttons feel frozen.
+  const playLoop = async () => {
+    if(anVideo.paused || anVideo.ended) return;
+    if(anVideo.readyState >= 2) await drawPoseFrame();
+    poseLoopHandle = requestAnimationFrame(playLoop);
   };
-  loop();
+  anVideo.onplay = () => { cancelAnimationFrame(poseLoopHandle); playLoop(); };
+  anVideo.onpause = () => { cancelAnimationFrame(poseLoopHandle); drawPoseFrame(); };
+  anVideo.onseeked = () => { drawPoseFrame(); };
 }
 
 async function drawPoseFrame(){
