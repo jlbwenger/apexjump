@@ -256,6 +256,12 @@
       <div id="auth-step-email">
         <input type="email" id="auth-email" placeholder="you@email.com" style="width:100%;background:var(--card2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:14px;margin-bottom:8px;">
         <button class="btn primary" style="width:100%;" onclick="sendAuthCode()">Send me a code</button>
+        <div style="margin-top:10px;text-align:center;"><button class="link-btn" style="font-size:11.5px;color:var(--text-dim);" onclick="togglePasswordSignIn()">App reviewer? Sign in with password</button></div>
+        <div id="auth-password-fallback" style="display:none;margin-top:10px;">
+          <input type="email" id="auth-pw-email" placeholder="you@email.com" style="width:100%;background:var(--card2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:14px;margin-bottom:8px;">
+          <input type="password" id="auth-pw-password" placeholder="Password" style="width:100%;background:var(--card2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:14px;margin-bottom:8px;">
+          <button class="btn primary" style="width:100%;" onclick="signInWithPassword()">Sign in</button>
+        </div>
       </div>
       <div id="auth-step-code" style="display:none;">
         <p style="font-size:13px;">Check <b id="auth-email-echo"></b> — tap the confirmation link in that email. You'll land back here already signed in, no need to come back and type anything.</p>
@@ -660,6 +666,25 @@ async function verifyAuthCode(){
 function backToEmailStep(){
   document.getElementById('auth-step-code').style.display = 'none';
   document.getElementById('auth-step-email').style.display = 'block';
+}
+
+/* App Store review sign-in fallback. Apple's reviewers can't receive a
+   real email OTP/magic link, so this gives them a normal password
+   sign-in path for one dedicated reviewer account (created in Supabase
+   Auth), without changing the passwordless flow everyone else uses. */
+function togglePasswordSignIn(){
+  const el = document.getElementById('auth-password-fallback');
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+async function signInWithPassword(){
+  const email = document.getElementById('auth-pw-email').value.trim();
+  const password = document.getElementById('auth-pw-password').value;
+  if(!email || !password){ alert("Enter both email and password."); return; }
+  const { data, error } = await sb.auth.signInWithPassword({ email, password });
+  if(error){ alert("Couldn't sign in: " + error.message); return; }
+  currentUser = data.user;
+  updateBillingUI();
 }
 
 async function signOut(){
