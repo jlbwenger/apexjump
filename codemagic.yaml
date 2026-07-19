@@ -6,6 +6,8 @@ workflows:
     integrations:
       app_store_connect: "Apex Jump Coach"   # the integration name shown in Codemagic > Apple Developer Portal integration
     environment:
+      groups:
+        - ios_signing
       vars:
         BUNDLE_ID: "com.jordanwenger.apexjumpcoach"
         XCODE_PROJECT: "ios/App/App.xcodeproj"
