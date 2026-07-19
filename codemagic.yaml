@@ -6,10 +6,8 @@ workflows:
     integrations:
       app_store_connect: Codemagic   # matches the integration name Jordan created in Codemagic > Team settings > Integrations
     environment:
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.jordanwenger.apexjumpcoach
       vars:
+        BUNDLE_ID: "com.jordanwenger.apexjumpcoach"
         XCODE_WORKSPACE: "ios/App/App.xcworkspace"
         XCODE_SCHEME: "App"
         APP_STORE_APPLE_ID: 6792364870
@@ -26,9 +24,16 @@ workflows:
       - name: Install CocoaPods
         script: |
           cd ios/App && pod install
-      - name: Set up code signing (automatic, via App Store Connect API key)
+      - name: Fetch signing files (creates a distribution certificate and provisioning profile via the App Store Connect API key if none exist yet)
         script: |
-          xcode-project use-profiles --create
+          app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
+      - name: Add the fetched certificate to the build's keychain
+        script: |
+          keychain initialize
+          keychain add-certificates
+      - name: Apply the fetched profile to the Xcode project's code signing settings
+        script: |
+          xcode-project use-profiles
       - name: Bump build number
         script: |
           cd ios/App
