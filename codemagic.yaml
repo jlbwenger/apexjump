@@ -4,7 +4,7 @@ workflows:
     max_build_duration: 60
     instance_type: mac_mini_m2
     integrations:
-      app_store_connect: apex_asc_key   # create this in Codemagic > Team settings > Integrations > App Store Connect, name it exactly this (or update the name here)
+      app_store_connect: Codemagic   # matches the integration name Jordan created in Codemagic > Team settings > Integrations
     environment:
       ios_signing:
         distribution_type: app_store
@@ -12,7 +12,7 @@ workflows:
       vars:
         XCODE_WORKSPACE: "ios/App/App.xcworkspace"
         XCODE_SCHEME: "App"
-        APP_STORE_APPLE_ID: 0000000000  # fill in once the app record exists in App Store Connect
+        APP_STORE_APPLE_ID: 6792364870
       node: 20
       xcode: latest
       cocoapods: default
