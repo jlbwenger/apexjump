@@ -106,6 +106,13 @@
   .feedback-cue{font-size:12.5px;color:var(--text);background:var(--card2);border-left:3px solid var(--accent2);border-radius:6px;padding:8px 10px;margin:6px 0;line-height:1.5;}
   .feedback-cue b{color:var(--accent2);}
   .feedback-detail{font-size:12.5px;color:var(--text-dim);}
+  .feedback-note{font-size:12.5px;color:var(--text-dim);background:rgba(255,183,3,0.08);border-radius:6px;padding:7px 9px;margin:6px 0;line-height:1.5;}
+  .drills-block{margin-top:10px;padding-top:10px;border-top:1px dashed var(--line);}
+  .drills-block.locked{opacity:0.85;}
+  .drills-title{font-size:12.5px;font-weight:700;color:var(--text);margin-bottom:4px;}
+  .drills-list{margin:4px 0 0;padding-left:18px;}
+  .drills-list li{font-size:12.5px;color:var(--text-dim);line-height:1.5;margin-bottom:6px;}
+  .drills-list li b{color:var(--text);}
   .empty-state{text-align:center;padding:40px 20px;color:var(--text-dim);}
   .slider-row{display:flex;align-items:center;gap:10px;margin-top:10px;}
   .slider-row input[type=range]{flex:1;}
@@ -277,7 +284,7 @@
 
     <div class="card" id="film-card" style="display:none;">
       <h3>Film your jump</h3>
-      <p>Set your phone up side-on to the bar, about 8–10m back, so your whole approach and the bar are in frame.</p>
+      <p>For the most accurate feedback: set your phone up side-on to the bar (perpendicular to your run-up), about 8–10m back, at roughly waist height. Keep your whole approach, takeoff, and landing in frame — don't zoom in.</p>
       <div class="record-stage">
         <video id="rec-video" autoplay muted playsinline></video>
       </div>
@@ -300,6 +307,7 @@
         <li>Unlimited video uploads &amp; recordings</li>
         <li>Unlimited AI pose-tracked critiques</li>
         <li>Every phase checkpoint, every jump</li>
+        <li>Personalized practice drills for every phase</li>
         <li>Cancel anytime</li>
       </ul>
       <div class="btn-row" style="justify-content:center;">
@@ -320,6 +328,7 @@
   <section id="view-analyze" class="view">
     <div class="card">
       <h3>Analyze</h3>
+      <p style="font-size:12px;margin-bottom:8px;">Best results come from a side-on angle, ~8–10m back, camera at waist height, whole jump in frame. <button class="link-btn" onclick="goTo('record')" style="font-size:12px;">Filming tips →</button></p>
       <select id="clip-select" onchange="loadClipForAnalysis(this.value)">
         <option value="">Select a clip…</option>
       </select>
@@ -372,6 +381,7 @@ const PHASES = [
     checkpoints: [
       "Straight section builds speed under control — no overstriding.",
       "Curve is smooth, roughly a 3/4 circle radius, not a sharp cut.",
+      "The step that initiates the curve is a cross step — your outside foot crosses in front of your inside foot to bank you into the turn, rather than just angling your existing stride.",
       "Body leans inward naturally from the curve, not from leaning the shoulders manually.",
       "Head and eyes stay level, not tilted down at the ground.",
       "Speed peaks in the last 3–4 strides, not the first ones."
@@ -384,6 +394,7 @@ const PHASES = [
       low: "You're running the curve pretty upright, almost like you're on a straight line instead of a curve. A little lean here isn't optional — it's what a curved sprint naturally does.",
       high: "You're leaning in harder than you need to. Too much lean usually means you're forcing it with your shoulders instead of just letting your speed carry you around the curve."
     },
+    note: "Double-check the step where you start the curve: it should be a cross step (outside foot crosses in front) that banks you into the turn — not a straight-line angle change. That cross step is what lets the lean happen naturally instead of being forced.",
     drill: {
       low: "Next jump: run your last 3 curve steps like you're 'falling' toward the bar. Don't lean on purpose — just relax and let your speed pull you into the curve.",
       high: "Next jump: stay tall through your chest on the curve. Let your hips lean, not your shoulders — you shouldn't feel like you're bending at the waist."
@@ -428,16 +439,31 @@ const PHASES = [
     ],
     angleKey: "takeoffLegAngle",
     idealRange: [160, 178],
-    unit: "° leg extension at takeoff",
+    unit: "° leg extension, which sets your takeoff angle",
     plain: {
-      good: "Your takeoff leg is nice and straight when it plants — that's what lets you punch straight up instead of losing power into a bent knee.",
-      low: "Your takeoff leg is bending more than it should when it plants. A softer leg here soaks up power instead of driving it straight up into the jump.",
-      high: "Your leg is locking out a little too stiff at takeoff, which can feel powerful but sometimes means you're not using your ankle and knee to help drive up."
+      good: "Your takeoff leg is nice and straight when it plants — that straight-leg extension is what gives you a takeoff angle close to vertical, so speed converts into height instead of distance across the bar.",
+      low: "Your takeoff leg is bending more than it should when it plants. A softer leg here soaks up power and tends to pull your takeoff angle away from vertical, sending you more across the bar than up over it.",
+      high: "Your leg is locking out a little too stiff at takeoff, which can feel powerful but sometimes means you're not using your ankle and knee to help drive your takeoff angle upward."
     },
     drill: {
       low: "Next jump: think about punching the ground away at takeoff, almost like your leg is a pogo stick — quick and firm, not squishy.",
       high: "Next jump: let your ankle and knee absorb just a touch of the landing before you drive — a completely stiff leg can't spring as well as a slightly loaded one."
-    }
+    },
+    extraChecks: [
+      {
+        key: "shoulderTurn",
+        idealMax: 0.34,
+        unit: "shoulder-turn ratio at plant",
+        label: "Shoulder alignment",
+        plain: {
+          good: "Your shoulders are staying square through the plant — not twisted toward or away from the bar, which keeps your takeoff force going straight up.",
+          high: "Your shoulders look turned at the plant, either opening up toward the bar too early or twisting away from it. That turn leaks power sideways instead of straight up, and can throw off your rotation into the arch."
+        },
+        drill: {
+          high: "Next jump: keep your shoulders facing the same direction as your hips all the way through the plant — don't let them 'open up' toward the bar until you're already in the air."
+        }
+      }
+    ]
   },
   {
     id: "clearance",
@@ -486,6 +512,35 @@ const PHASES = [
     }
   }
 ];
+
+/* ---------------------------------------------------------
+   PRO-ONLY: practice drill library, keyed by phase id.
+   Real, commonly-used high jump training drills — not tied to
+   any single measurement, just genuine reference material for
+   subscribers to work on between sessions.
+--------------------------------------------------------- */
+const DRILLS = {
+  approach: [
+    { name: "5-Step Curve Runs", detail: "Run just the last 5 strides of your approach on the curve, without jumping. Focus on rhythm and letting the lean happen naturally — repeat until the curve feels automatic." },
+    { name: "Cone Curve Drill", detail: "Set cones along your curve path and run it repeatedly, hitting each cone with the correct foot. Grooves a consistent radius and step pattern into the curve." }
+  ],
+  penultimate: [
+    { name: "Long-Short Rhythm Drill", detail: "Jog through just the last 3 steps, exaggerating the long penultimate step and the short final step. Say 'long-short-up' out loud to lock in the rhythm." },
+    { name: "Penultimate Bounds", detail: "From a short run-up, focus only on an exaggerated penultimate step into a bound, landing softly to feel the hip-drop-and-spring pattern." }
+  ],
+  takeoff: [
+    { name: "Standing Takeoffs", detail: "From a standing position right next to the bar (no run-up), practice just the plant-and-drive motion straight up. Focus on a straight leg and a fast arm drive." },
+    { name: "Pop-Up Drills", detail: "Short 3–5 step approach jumps, focused purely on driving straight up off the ground as fast and high as possible — ignore the bar entirely for these." }
+  ],
+  clearance: [
+    { name: "Back Arch Drills on a Mat", detail: "Standing near a crash mat, practice the arch-and-drop shape with no bar. Focus on the sequence: hips up first, shoulders/head back after." },
+    { name: "Standing Arch-and-Kick", detail: "From standing at the edge of the mat, fall backward into an arch and kick the legs over. Builds the arch-to-leg-whip sequence without needing a run-up." }
+  ],
+  landing: [
+    { name: "Controlled Backward Rolls", detail: "On a soft mat, practice rolling backward onto your shoulders to build comfort and safe landing mechanics away from full-speed jumps." },
+    { name: "Chin-Tuck Landing Reps", detail: "Short standing jumps backward onto the mat, focused only on tucking the chin and landing across the shoulders/upper back, not the neck." }
+  ]
+};
 
 const ATHLETES = [
   {
@@ -1236,6 +1291,46 @@ function computeAngleForPhase(phase, kps){
   }
 }
 
+/* Secondary, non-primary checks a phase can define (see `extraChecks` on
+   PHASES entries). Each returns a single numeric value; how it's judged
+   (idealMax here, could grow to idealRange later) lives on the check
+   definition itself, not here. */
+function computeExtraCheckValue(checkKey, kps){
+  if(!kps) return null;
+  const byName = {}; kps.forEach(k=>byName[k.name]=k);
+  switch(checkKey){
+    case "shoulderTurn": {
+      const ls = byName.left_shoulder, rs = byName.right_shoulder, lh = byName.left_hip, rh = byName.right_hip;
+      if(!ls||!rs||!lh||!rh || ls.score<0.3 || rs.score<0.3) return null;
+      const shoulderMid = midpoint(ls,rs), hipMid = midpoint(lh,rh);
+      const shoulderWidth = Math.hypot(ls.x-rs.x, ls.y-rs.y);
+      const torsoHeight = Math.hypot(shoulderMid.x-hipMid.x, shoulderMid.y-hipMid.y);
+      if(!torsoHeight) return null;
+      // In a true side-on view the shoulder points nearly overlap, so this
+      // ratio stays small. A turned torso spreads them apart, raising it.
+      return shoulderWidth / torsoHeight;
+    }
+    default: return null;
+  }
+}
+
+function renderDrillsBlock(phaseId){
+  const drills = DRILLS[phaseId];
+  if(!drills || !drills.length) return '';
+  if(!lastKnownAccess.subscribed){
+    return `<div class="drills-block locked">
+      <div class="drills-title">🔒 Drills for practice <span class="pro-badge">PRO</span></div>
+      <p style="margin:4px 0 0;font-size:12.5px;">Apex Pro includes real training drills for every phase, matched to what your video shows. <button class="link-btn" onclick="goTo('record')">Subscribe to unlock</button></p>
+    </div>`;
+  }
+  return `<div class="drills-block">
+    <div class="drills-title">🏋️ Drills for practice <span class="pro-badge">PRO</span></div>
+    <ul class="drills-list">
+      ${drills.map(d=>`<li><b>${d.name}</b> — ${d.detail}</li>`).join('')}
+    </ul>
+  </div>`;
+}
+
 function generateFeedback(){
   const list = document.getElementById('feedback-list');
   const items = [];
@@ -1247,62 +1342,95 @@ function generateFeedback(){
     }
     if(!phase.angleKey){
       items.push({
+        phaseId: phase.id,
         status:'good',
         title: phase.name + " — marked",
         plain: phase.plain?.good || "",
+        note: phase.note || "",
         cue: phase.drill?.low || phase.cue,
         tech: "Manual checkpoint phase — no auto-measurement. Review against: " + phase.checkpoints[0]
       });
-      return;
-    }
-    const angle = computeAngleForPhase(phase, kps);
-    if(angle==null){
-      items.push({
-        status:'warn',
-        title: phase.name + " — pose unclear",
-        plain: "Apex couldn't get a confident read on your joints at this frame, so there's nothing to measure here.",
-        cue: "Try re-filming from directly side-on to the bar, with your whole body in frame at this moment of the jump.",
-        tech: ""
-      });
-      return;
-    }
-    const [lo,hi] = phase.idealRange;
-    const rounded = Math.round(angle);
-    if(angle>=lo && angle<=hi){
-      items.push({
-        status:'good',
-        title: `${phase.name} — on target`,
-        plain: phase.plain?.good || "",
-        cue: `Keep doing what you're doing here. Cue to reinforce: "${phase.cue}"`,
-        tech: `Measured ~${rounded}${phase.unit}. Elite range: ${lo}–${hi}.`
-      });
     } else {
-      const isLow = angle<lo;
-      const severity = Math.abs(angle-(isLow?lo:hi))>15 ? 'bad':'warn';
-      items.push({
-        status: severity,
-        title: `${phase.name} — check this`,
-        plain: (isLow ? phase.plain?.low : phase.plain?.high) || "",
-        cue: (isLow ? phase.drill?.low : phase.drill?.high) || `Focus cue: "${phase.cue}"`,
-        tech: `Measured ~${rounded}${phase.unit}, which is ${isLow ? "less than" : "more than"} the elite range (${lo}–${hi}).`
-      });
+      const angle = computeAngleForPhase(phase, kps);
+      if(angle==null){
+        items.push({
+          phaseId: phase.id,
+          status:'warn',
+          title: phase.name + " — pose unclear",
+          plain: "Apex couldn't get a confident read on your joints at this frame, so there's nothing to measure here.",
+          cue: "Try re-filming from directly side-on to the bar, with your whole body in frame at this moment of the jump.",
+          tech: ""
+        });
+      } else {
+        const [lo,hi] = phase.idealRange;
+        const rounded = Math.round(angle);
+        if(angle>=lo && angle<=hi){
+          items.push({
+            phaseId: phase.id,
+            status:'good',
+            title: `${phase.name} — on target`,
+            plain: phase.plain?.good || "",
+            note: phase.note || "",
+            cue: `Keep doing what you're doing here. Cue to reinforce: "${phase.cue}"`,
+            tech: `Measured ~${rounded}${phase.unit}. Elite range: ${lo}–${hi}.`
+          });
+        } else {
+          const isLow = angle<lo;
+          const severity = Math.abs(angle-(isLow?lo:hi))>15 ? 'bad':'warn';
+          items.push({
+            phaseId: phase.id,
+            status: severity,
+            title: `${phase.name} — check this`,
+            plain: (isLow ? phase.plain?.low : phase.plain?.high) || "",
+            note: phase.note || "",
+            cue: (isLow ? phase.drill?.low : phase.drill?.high) || `Focus cue: "${phase.cue}"`,
+            tech: `Measured ~${rounded}${phase.unit}, which is ${isLow ? "less than" : "more than"} the elite range (${lo}–${hi}).`
+          });
+        }
+      }
     }
+
+    // Secondary checks (e.g. shoulder alignment at takeoff) — same phase,
+    // separate measurement, so they render as their own item.
+    (phase.extraChecks || []).forEach(check=>{
+      const value = computeExtraCheckValue(check.key, kps);
+      if(value==null) return;
+      const over = value > check.idealMax;
+      items.push({
+        phaseId: phase.id,
+        status: over ? (value - check.idealMax > 0.15 ? 'bad' : 'warn') : 'good',
+        title: `${phase.name} — ${check.label}`,
+        plain: over ? (check.plain?.high || "") : (check.plain?.good || ""),
+        cue: over ? (check.drill?.high || "") : "",
+        tech: `Measured ~${value.toFixed(2)} ${check.unit}. Target: under ${check.idealMax}.`
+      });
+    });
   });
 
   if(items.length===0){
     list.innerHTML = '<div class="empty-state">Mark at least one phase above to get feedback.</div>';
   } else {
-    list.innerHTML = items.map(it=>`
+    const drillsRendered = new Set();
+    list.innerHTML = items.map(it=>{
+      let drillsHtml = '';
+      if(it.phaseId && !drillsRendered.has(it.phaseId)){
+        drillsRendered.add(it.phaseId);
+        drillsHtml = renderDrillsBlock(it.phaseId);
+      }
+      return `
       <div class="feedback-item">
         <div class="dot ${it.status}"></div>
         <div style="flex:1;">
           <div class="feedback-title">${it.title}</div>
           ${it.plain ? `<div class="feedback-plain">${it.plain}</div>` : ''}
           ${it.cue ? `<div class="feedback-cue">🎯 <b>Try this next jump:</b> ${it.cue}</div>` : ''}
+          ${it.note ? `<div class="feedback-note">💡 ${it.note}</div>` : ''}
           ${it.tech ? `<div class="feedback-detail">${it.tech}</div>` : ''}
+          ${drillsHtml}
         </div>
       </div>
-    `).join('');
+    `;
+    }).join('');
   }
   document.getElementById('feedback-card').style.display = 'block';
 }
