@@ -47,5 +47,13 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Apex needs camera access so you can film your high jump for technique analysis.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Apex records audio along with video when you film a jump. You can still film without sound if you decline.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Apex needs access to your photo library so you can upload an existing jump video for analysis.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Apex can save analyzed jump clips back to your photo library if you choose to.</string>
 </dict>
 </plist>
